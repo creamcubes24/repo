@@ -774,8 +774,8 @@ $('file').addEventListener('change',async e=>{
 });
 /* 架空サンプル（実在の走行データではありません） */
 function makeSample(){
-  const wp=[[35.7295,139.7109],[35.7100,139.7040],[35.6896,139.7005],[35.6580,139.7016],[35.6620,139.7300],[35.6812,139.7671],[35.7141,139.7774],[35.7295,139.7109]];
-  const stopAt={2:480,4:240,5:1200,6:300};   // waypoint index -> 停止秒数
+  const wp=[[35.7295,139.7109],[35.6896,139.7005],[35.6580,139.7016],[35.6200,139.7400],[35.5494,139.7798],[35.5100,139.6900],[35.4660,139.6226],[35.4437,139.6380],[35.5300,139.6300],[35.6000,139.7300],[35.6812,139.7671],[35.7141,139.7774],[35.7295,139.7109]];
+  const stopAt={2:300,4:600,6:900,7:300,10:240,11:1200};   // waypoint index -> 停止秒数
   let t=Date.UTC(2026,0,14,23,0,0),out=[],seed=7;
   const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647-0.5;};
   const push=(la,lo)=>out.push({lat:la+rnd()*0.00004,lon:lo+rnd()*0.00004,t});
@@ -783,7 +783,7 @@ function makeSample(){
   for(let i=1;i<wp.length;i++){
     const [a,b]=wp[i-1],[c,d]=wp[i];
     const km=Math.hypot((c-a)*111,(d-b)*91);
-    const n=Math.max(6,Math.round(km/(0.06+0.02*Math.abs(Math.sin(i*2))) ));
+    const n=Math.max(6,Math.round(km/(km>8?0.14:0.06+0.02*Math.abs(Math.sin(i*2))) ));
     for(let k=1;k<=n;k++){ t+=10000; const u=k/n; push(a+(c-a)*u,b+(d-b)*u); }
     const w=stopAt[i]||0;
     for(let s2=10;s2<=w;s2+=10){ t+=10000; push(c,d); }
