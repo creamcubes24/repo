@@ -90,7 +90,7 @@
       </select>
     </label>
     <label>向き
-      <select id="orient"><option value="port">縦 9:16 (720×1280)</option><option value="land">横 16:9 (1280×720)</option><option value="sq">正方形 1:1 (720×720)</option></select>
+      <select id="orient"><option value="sq" selected>正方形 1:1 (720×720)</option><option value="port">縦 9:16 (720×1280)</option><option value="land">横 16:9 (1280×720)</option></select>
     </label>
     <label>長さ(秒)
       <input type="number" id="dur" value="30" min="5" max="120">
@@ -118,9 +118,9 @@
     <label class="chk"><input type="checkbox" id="opening" checked>オープニング（日付・稼働時間・全軌跡）</label>
     <label class="chk"><input type="checkbox" id="showAll" checked>全軌跡を最初から薄く表示</label>
     <label class="chk"><input type="checkbox" id="fade" checked>残像フェード</label>
-    <label class="chk"><input type="checkbox" id="showStop">停止時間（累計）を表示</label>
-    <label class="chk"><input type="checkbox" id="showBreak">休憩時間カウンターを表示</label>
-    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（8件）を表示</label>
+    <label class="chk"><input type="checkbox" id="showStop" checked>停止時間（累計）を表示</label>
+    <label class="chk"><input type="checkbox" id="showBreak" checked>休憩時間カウンターを表示</label>
+    <label class="chk"><input type="checkbox" id="showRun" checked>停止の履歴（8件）を表示</label>
   </div>
 </div>
 
@@ -198,11 +198,17 @@ function parseGPX(text){
 }
 
 function smoothPts(list,half){
-  const n=list.length,out=new Array(n);
+  // 角を丸めないGPSブレ補正: 前後の平均に寄せるが、動かす量は最大2.5mまでに制限する。
+  // ブレ（数m）は消え、角や曲がり道の形はそのまま残る。
+  const LIM=2.5,n=list.length,out=new Array(n);
   for(let i=0;i<n;i++){
     let a=0,o=0,c=0;
     for(let j=Math.max(0,i-half);j<=Math.min(n-1,i+half);j++){a+=list[j].lat;o+=list[j].lon;c++;}
-    out[i]={lat:a/c,lon:o/c,t:list[i].t};
+    a/=c;o/=c;
+    const p=list[i];
+    const dy=(a-p.lat)*110540,dx=(o-p.lon)*111320*Math.cos(p.lat*Math.PI/180);
+    const d=Math.hypot(dx,dy),f=d>LIM?LIM/d:1;
+    out[i]={lat:p.lat+(a-p.lat)*f,lon:p.lon+(o-p.lon)*f,t:p.t};
   }
   return out;
 }
@@ -738,7 +744,7 @@ function setBusy(b){
 /* ---------- events ---------- */
 function loadPoints(raw){
   let list=raw;
-  if($('smooth').checked&&list.length>4) list=smoothPts(list,1);
+  if($('smooth').checked&&list.length>4) list=smoothPts(list,2);
   pts=list;
 }
 let rawPts=[];
