@@ -541,7 +541,7 @@ function drawOpening(fo){
   ctx.beginPath();ctx.arc(sx[e],sy[e],10*k/so,0,Math.PI*2);ctx.fillStyle='#c62828';ctx.fill();ctx.stroke();
   ctx.restore();
   // タイトル（本編の文字枠と同じ位置＝下）
-  const a=Math.min(1,fo/(0.5*FPS)),ease=1-Math.pow(1-a,3);
+  const ease=1;   // 最初のフレームから日付・稼働時間を表示（フェードインなし）
   const mg=20*k,ph2=Math.max(panelH(k),106*k),py2=H-ph2-22*k+24*k*(1-ease);
   ctx.globalAlpha=ease;
   rrect(mg,py2,W-2*mg,ph2,16*k);
