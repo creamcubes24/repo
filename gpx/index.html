@@ -389,7 +389,7 @@ function prepare(){
   const fit=Math.min(0.94*W/Math.max(mxx-mnx,1),0.80*H/Math.max(mxy-mny,1));
   const Zf=Math.max(3,Math.min(18,Z+Math.log2(fit)));
   Zo=Math.floor(Zf+1e-9);es=Math.pow(2,Zf-Zo);st=Math.pow(2,Zf-Z);
-  opCx=(mnx+mxx)/2*st;opCy=(mny+mxy)/2*st-0.08*H;
+  opCx=(mnx+mxx)/2*st;opCy=(mny+mxy)/2*st+0.08*H;
   const sl=$('scrub');
   sl.max=TOT-1;sl.disabled=false;
   curF=Math.min(curF,TOT-1);sl.value=curF;
@@ -496,6 +496,12 @@ function draw(F){
   } else drawOpening(F);
 }
 
+function panelH(k){
+  const nLeft=hasTime?($('showStop').checked?1:0)+($('showBreak').checked?1:0):0;
+  const hr=(hasTime&&$('showRun').checked)?4:0;
+  return Math.max(46*k+26*k*nLeft,hr?hr*24*k+8*k:0)+44*k;
+}
+
 function drawOpening(fo){
   const map=$('map').value,max=Math.pow(2,Zo),k=Math.min(W,H)/720;
   const L=opCx-W/2,T=opCy-H/2,ts=256*es;
@@ -523,23 +529,23 @@ function drawOpening(fo){
   ctx.beginPath();ctx.arc(sx[0],sy[0],10*k/so,0,Math.PI*2);ctx.fillStyle='#2e7d32';ctx.fill();ctx.lineWidth=3*k/so;ctx.strokeStyle='#fff';ctx.stroke();
   ctx.beginPath();ctx.arc(sx[e],sy[e],10*k/so,0,Math.PI*2);ctx.fillStyle='#c62828';ctx.fill();ctx.stroke();
   ctx.restore();
-  // タイトル
+  // タイトル（本編の文字枠と同じ位置＝下）
   const a=Math.min(1,fo/(0.5*FPS)),ease=1-Math.pow(1-a,3);
-  const mg=20*k,ph2=hasTime?150*k:110*k,off=-24*k*(1-ease);
+  const mg=20*k,ph2=Math.max(panelH(k),106*k),py2=H-ph2-22*k+24*k*(1-ease);
   ctx.globalAlpha=ease;
-  rrect(mg,mg+off,W-2*mg,ph2,18*k);
+  rrect(mg,py2,W-2*mg,ph2,16*k);
   ctx.fillStyle='rgba(255,255,255,0.92)';ctx.fill();
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
   if(hasTime){
     const t0=pts[0].t,t1=pts[pts.length-1].t;
     const sameDay=fmtDay.format(new Date(t0))===fmtDay.format(new Date(t1));
-    ctx.fillStyle='#111';ctx.font=fnt(52*k,true);
-    ctx.fillText(fmtDateFull.format(new Date(t0)),W/2,mg+off+66*k);
-    ctx.fillStyle='#444';ctx.font=fnt(30*k,false);
-    ctx.fillText('稼働 '+fmtTime.format(new Date(t0))+' 〜 '+(sameDay?'':'翌 ')+fmtTime.format(new Date(t1))+'（'+fmtDur((t1-t0)/1000)+'）',W/2,mg+off+114*k);
+    ctx.fillStyle='#111';ctx.font=fnt(44*k,true);
+    ctx.fillText(fmtDateFull.format(new Date(t0)),W/2,py2+54*k);
+    ctx.fillStyle='#444';ctx.font=fnt(25*k,false);
+    ctx.fillText('稼働 '+fmtTime.format(new Date(t0))+' 〜 '+(sameDay?'':'翌 ')+fmtTime.format(new Date(t1))+'（'+fmtDur((t1-t0)/1000)+'）',W/2,py2+90*k);
   } else {
-    ctx.fillStyle='#111';ctx.font=fnt(48*k,true);
-    ctx.fillText('GPS 軌跡',W/2,mg+off+72*k);
+    ctx.fillStyle='#111';ctx.font=fnt(44*k,true);
+    ctx.fillText('GPS 軌跡',W/2,py2+62*k);
   }
   ctx.globalAlpha=1;ctx.textAlign='left';
 }
@@ -602,7 +608,7 @@ function drawBody(f,rest){
   const left=[];
   if(hasTime){
     if($('showStop').checked) left.push({t:'停止 '+fmtDurS(mkS[f]),c:'#555',b:false});
-    if(brkOn) left.push({t:'休憩 '+Math.floor(mkBr[f]/60)+'分　計 '+fmtDur(mkB[f]),c:'#c62828',b:!!mkBin[f]});
+    if(brkOn) left.push({t:mkBc[f]>0?'休憩 '+mkBc[f]+'回目 '+Math.floor(mkBr[f]/60)+'分　計 '+fmtDur(mkB[f]):'休憩 なし　計 0分',c:'#c62828',b:!!mkBin[f]});
   }
   let rows=[];
   if(hasTime&&$('showRun').checked){
@@ -614,11 +620,13 @@ function drawBody(f,rest){
       const r=stopRuns[j];
       let rank=0;                                   // 自分より新しい停止の数（件数）
       for(let m=j+1;m<c;m++) rank+=Math.min(1,(f-stopRuns[m].sf)/TR);
-      let a=fadeH?Math.max(0,1-rank/6):1;           // 6件前で消える＝書き換える枠の2つ手前は消えている
-      if(fadeH) a*=Math.min(1,(f-r.sf+1)/TR);       // 出始めはふわっと
+      // 件数ごとの濃さ（メリハリ）: 最新100% → 55 → 30 → 15 → 6 → 消える。次に書き換える枠の手前2つは消えている
+      const TB=[1,0.55,0.30,0.15,0.06,0,0,0,0];
+      const ri=Math.min(7,Math.floor(rank)),rf=rank-ri;
+      let a=fadeH?TB[ri]+(TB[ri+1]-TB[ri])*Math.min(1,rf):1;
       a=a+(1-a)*restore;                            // エンディングで濃く戻る
       const ended=r.ef<=f;
-      rows.push({t:r.s,d:ended?(r.e-r.s)/1000:mkR[f],a:a,live:!ended,slot:j%8});
+      rows.push({t:r.s,d:ended?(r.e-r.s)/1000:mkR[f],a:a,live:!ended,newest:(j===c-1),slot:j%8});
     }
   }
   const histRows=(hasTime&&$('showRun').checked)?4:0;
@@ -636,17 +644,17 @@ function drawBody(f,rest){
     ctx.fillStyle='#444';ctx.font=fnt(22*k,false);
     ctx.fillText(fmtDate.format(d),bx+tw+12*k,base);
     left.forEach((l,j)=>{
-      ctx.fillStyle=l.c;ctx.font=fnt(21*k,l.b);
+      ctx.fillStyle=l.c;ctx.font=fnt(19*k,l.b);
       ctx.fillText(l.t,bx,base+26*k*(j+1));
     });
     ctx.textAlign='right';
-    ctx.font=fnt(17*k,true);
+    ctx.font=fnt(16*k,true);
     const colW=ctx.measureText('00:00  1時間00分00秒').width,gap=16*k;
     rows.forEach((r,i)=>{
       const isBrk=brkOn&&r.d>=thrS,c=r.slot<4?0:1,rw=r.slot%4;
       ctx.globalAlpha=r.a;
       ctx.fillStyle=r.live?'#e53935':(isBrk?'#e65100':'#333');
-      ctx.font=fnt(17*k,r.live||isBrk);
+      ctx.font=fnt(16*k,r.newest||r.live||isBrk);
       const xr=bx+bw-(c===0?colW+gap:0);
       ctx.fillText(fmtTime.format(new Date(r.t))+'  '+fmtDurS(r.d),xr,py+28*k+24*k*rw);
     });
