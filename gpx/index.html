@@ -108,6 +108,9 @@
         <option value="dela">Dela Gothic One（極太）</option>
       </select>
     </label>
+    <label>履歴の件数
+      <select id="histN"><option value="4" selected>4件（1列）</option><option value="8">8件（2列）</option></select>
+    </label>
     <label>休憩とみなす停止（分以上）
       <input type="number" id="brk" value="10" min="1" max="600" step="1" inputmode="numeric">
     </label>
@@ -120,7 +123,7 @@
     <label class="chk"><input type="checkbox" id="fade" checked>残像フェード</label>
     <label class="chk"><input type="checkbox" id="showStop" checked>停止時間（累計）を表示</label>
     <label class="chk"><input type="checkbox" id="showBreak" checked>休憩時間カウンターを表示</label>
-    <label class="chk"><input type="checkbox" id="showRun" checked>停止の履歴（8件）を表示</label>
+    <label class="chk"><input type="checkbox" id="showRun" checked>停止の履歴を表示</label>
   </div>
 </div>
 
@@ -622,17 +625,18 @@ function drawBody(f,rest){
     let c=0;
     while(c<stopRuns.length&&stopRuns[c].sf<=f) c++;
     const fadeH=$('fade').checked,TR=24;
-    for(let j=Math.max(0,c-8);j<c;j++){
+    const NH=+$('histN').value;
+    for(let j=Math.max(0,c-NH);j<c;j++){
       const r=stopRuns[j];
       let rank=0;                                   // 自分より新しい停止の数（件数）
       for(let m=j+1;m<c;m++) rank+=Math.min(1,(f-stopRuns[m].sf)/TR);
       // 件数ごとの濃さ（メリハリ）: 最新100% → 55 → 30 → 15 → 6 → 消える。次に書き換える枠の手前2つは消えている
-      const TB=[1,0.55,0.30,0.15,0.06,0,0,0,0];
+      const TB=NH===4?[1,0.5,0.2,0,0,0,0,0,0]:[1,0.55,0.30,0.15,0.06,0,0,0,0];   // 4件: 次に書き換える枠は消えている
       const ri=Math.min(7,Math.floor(rank)),rf=rank-ri;
       let a=fadeH?TB[ri]+(TB[ri+1]-TB[ri])*Math.min(1,rf):1;
       a=a+(1-a)*restore;                            // エンディングで濃く戻る
       const ended=r.ef<=f;
-      rows.push({t:r.s,d:ended?(r.e-r.s)/1000:mkR[f],a:a,live:!ended,newest:(j===c-1),slot:j%8});
+      rows.push({t:r.s,d:ended?(r.e-r.s)/1000:mkR[f],a:a,live:!ended,newest:(j===c-1),slot:j%NH});
     }
   }
   const histRows=(hasTime&&$('showRun').checked)?4:0;
@@ -655,9 +659,10 @@ function drawBody(f,rest){
     });
     ctx.textAlign='right';
     ctx.font=fnt(16*k,true);
+    const NHd=+$('histN').value;
     const colW=ctx.measureText('00:00  1時間00分00秒').width,gap=16*k;
     rows.forEach((r,i)=>{
-      const isBrk=brkOn&&r.d>=thrS,c=r.slot<4?0:1,rw=r.slot%4;
+      const isBrk=brkOn&&r.d>=thrS,c=NHd===8?(r.slot<4?0:1):1,rw=r.slot%4;
       ctx.globalAlpha=r.a;
       ctx.fillStyle=r.live?'#e53935':(isBrk?'#e65100':'#333');
       ctx.font=fnt(16*k,r.newest||r.live||isBrk);
@@ -763,7 +768,7 @@ $('file').addEventListener('change',async e=>{
     $('result').innerHTML='';
   }catch(err){status('読み込みに失敗しました: '+err.message);}
 });
-['map','zoom','dz','orient','dur','compress','opening','fade','brk'].forEach(id=>$(id).addEventListener('change',()=>{
+['map','zoom','dz','orient','dur','compress','opening','fade','brk','histN'].forEach(id=>$(id).addEventListener('change',()=>{
   if(busy||!rawPts.length) return;
   stop();prepare();
 }));
