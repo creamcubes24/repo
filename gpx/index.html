@@ -33,6 +33,8 @@
   a.dl{display:block;text-align:center;padding:12px;background:#2e7d32;color:#fff;border-radius:10px;text-decoration:none;margin-top:8px;font-size:16px}
   .note{font-size:12px;color:#777;margin-top:6px}
   input#file{display:none}
+  button,label,select,input,canvas{touch-action:manipulation}
+  html{-webkit-text-size-adjust:100%}
   .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:130px;border:3px dashed #1565c0;border-radius:14px;background:#e8f0fb;color:#1565c0;cursor:pointer;text-align:center;padding:14px;margin-bottom:10px;width:100%}
   .drop .big{font-size:21px;font-weight:bold}
   .drop .small{font-size:13px;color:#555;word-break:break-all}
@@ -49,8 +51,8 @@
 <h1>GPX 地図動画メーカー</h1>
 
 <div class="card">
-  <details class="about" open>
-    <summary><b>✔ 安心してお使いください</b>（タップで開閉）</summary>
+  <div class="about">
+    <div><b>✔ 安心してお使いください</b></div>
     <ul>
       <li><b>GPXは外に送信されません。</b>読み込み・加工・動画の作成は、すべてこの端末のブラウザの中で行います。</li>
       <li>サーバーへのアップロードも、ログインも、会員登録も、広告もありません。</li>
@@ -58,7 +60,7 @@
       <li>通信するのは、<b>地図の画像</b>（国土地理院／OpenStreetMap）と<b>フォント</b>の読み込みだけです。GPXの中身や位置情報は送りません。</li>
       <li>ページを閉じると、読み込んだデータはすべて消えます。</li>
     </ul>
-  </details>
+  </div>
 </div>
 
 <div class="card">
@@ -135,7 +137,7 @@
     <button id="rec" class="sub" disabled>● 動画を保存</button>
   </div>
   <div id="status">GPXファイルを選んでください</div>
-  <details id="stopsBox" style="display:none"><summary id="stopsSum">停止区間一覧</summary><div id="stopsList"></div></details>
+  <div id="stopsBox" style="display:none"><div id="stopsSum" style="font-weight:bold;margin-top:8px;font-size:13px"></div><div id="stopsList"></div></div>
   <div class="note">枠の中で動いている間はカメラが動きません。枠から出たときだけスクロールします。</div>
   <div id="result"></div>
 </div>
