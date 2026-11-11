@@ -120,7 +120,7 @@
     <label class="chk"><input type="checkbox" id="fade" checked>残像フェード</label>
     <label class="chk"><input type="checkbox" id="showStop">停止時間（累計）を表示</label>
     <label class="chk"><input type="checkbox" id="showBreak">休憩時間カウンターを表示</label>
-    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（直近6件）を表示</label>
+    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（8件ずつ）を表示</label>
   </div>
 </div>
 
@@ -335,7 +335,7 @@ function prepare(){
   // 下の白い文字枠に現在地が入り込まないよう、下側の余白を確保する
   const kk=Math.min(W,H)/720;
   const nLeft=hasTime?($('showStop').checked?1:0)+($('showBreak').checked?1:0):0;
-  const nHist=hasTime&&$('showRun').checked?3:0;
+  const nHist=hasTime&&$('showRun').checked?4:0;
   const phMax=Math.max(46*kk+26*kk*nLeft,nHist?nHist*26*kk+8*kk:0)+44*kk;
   const limDn=Math.max(0.15*H,H/2-(phMax+22*kk)-36*kk);   // 中心から下へ行ける最大距離
   const dzyDn=Math.min(dzy,limDn),limUp=limy;
@@ -596,12 +596,14 @@ function drawBody(f,rest){
   if(hasTime&&$('showRun').checked){
     const done=[];
     for(const r of stopRuns){ if(r.e<=mkT[f]) done.push(r); else break; }
-    rows=done.slice(-6).map((r,i,a2)=>({t:r.s,d:(r.e-r.s)/1000,a:0.5+0.5*(i+1)/a2.length,live:false}));
+    // 位置が動かないよう、8件ずつのページ表示（満杯になったら次のページを最初から）
+    const all=done.map(r=>({t:r.s,d:(r.e-r.s)/1000,a:1,live:false}));
     const ls=mkT[f]-mkR[f]*1000;
-    if(mkR[f]>0&&!(done.length&&Math.abs(done[done.length-1].s-ls)<2000)) rows.push({t:ls,d:mkR[f],a:1,live:true});
-    rows=rows.slice(-6);
+    if(mkR[f]>0&&!(done.length&&Math.abs(done[done.length-1].s-ls)<2000)) all.push({t:ls,d:mkR[f],a:1,live:true});
+    const pg=Math.max(0,Math.floor((all.length-1)/8));
+    rows=all.slice(pg*8,pg*8+8);
   }
-  const histRows=(hasTime&&$('showRun').checked)?3:0;
+  const histRows=(hasTime&&$('showRun').checked)?4:0;
   const topArea=Math.max(46*k+26*k*left.length,histRows?histRows*24*k+8*k:0);
   const ph=topArea+44*k,py=H-ph-22*k,bh=8*k,by=py+ph-27*k;
   rrect(mg,py,W-2*mg,ph,16*k);
@@ -623,7 +625,7 @@ function drawBody(f,rest){
     ctx.font=fnt(17*k,true);
     const colW=ctx.measureText('00:00  1時間00分00秒').width,gap=16*k;
     rows.forEach((r,i)=>{
-      const isBrk=brkOn&&r.d>=thrS,c=i<3?0:1,rw=i%3;
+      const isBrk=brkOn&&r.d>=thrS,c=i<4?0:1,rw=i%4;
       ctx.globalAlpha=r.a;
       ctx.fillStyle=r.live?'#e53935':(isBrk?'#e65100':'#333');
       ctx.font=fnt(17*k,r.live||isBrk);
