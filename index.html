@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPX 地図動画メーカー</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1565c0">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Oswald:wght@500;700&family=Rajdhani:wght@600;700&family=M+PLUS+1+Code:wght@500;700&family=DotGothic16&family=Dela+Gothic+One&display=swap">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:12px;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f4f4f1;color:#222;max-width:560px;margin:0 auto}
+  h1{font-size:18px;margin:4px 0 10px}
+  .card{background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .row:last-child{margin-bottom:0}
+  label{font-size:13px;color:#555;display:flex;flex-direction:column;gap:2px;flex:1;min-width:110px}
+  select,input[type=number]{font-size:15px;padding:7px;border:1px solid #ccc;border-radius:8px;background:#fff;width:100%}
+  input[type=file]{font-size:14px;width:100%}
+  button{font-size:16px;padding:12px 14px;border:0;border-radius:10px;background:#1565c0;color:#fff;flex:1;min-width:120px}
+  button.sub{background:#455a64}
+  button:disabled{opacity:.4}
+  .chk{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:#222;min-width:46%}
+  .chk input{width:20px;height:20px}
+  canvas{width:100%;height:auto;display:block;border-radius:10px;background:#ddd}
+  input[type=range]{width:100%;margin:10px 0 2px}
+  #status{font-size:13px;color:#444;min-height:18px;white-space:pre-wrap}
+  video{width:100%;border-radius:10px;margin-top:8px}
+  a.dl{display:block;text-align:center;padding:12px;background:#2e7d32;color:#fff;border-radius:10px;text-decoration:none;margin-top:8px;font-size:16px}
+  .note{font-size:12px;color:#777;margin-top:6px}
+  details{font-size:13px;margin-top:8px}
+  .about{font-size:13px;line-height:1.7;color:#333}
+  .about b{color:#2e7d32}
+  .about ul{margin:6px 0 0;padding-left:18px}
+  #stopsList{font-size:12px;max-height:200px;overflow:auto;white-space:pre;background:#f6f6f6;border-radius:8px;padding:8px;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>GPX 地図動画メーカー</h1>
+
+<div class="card">
+  <details class="about" open>
+    <summary><b>✔ 安心してお使いください</b>（タップで開閉）</summary>
+    <ul>
+      <li><b>GPXは外に送信されません。</b>読み込み・加工・動画の作成は、すべてこの端末のブラウザの中で行います。</li>
+      <li>サーバーへのアップロードも、ログインも、会員登録も、広告もありません。</li>
+      <li>作った動画は、この端末にだけ保存されます。</li>
+      <li>通信するのは、<b>地図の画像</b>（国土地理院／OpenStreetMap）と<b>フォント</b>の読み込みだけです。GPXの中身や位置情報は送りません。</li>
+      <li>ページを閉じると、読み込んだデータはすべて消えます。</li>
+    </ul>
+  </details>
+</div>
+
+<div class="card">
+  <div class="row"><input type="file" id="file" accept=".gpx,application/gpx+xml,text/xml,application/xml,*/*"></div>
+  <div class="row">
+    <label>地図
+      <select id="map">
+        <option value="pale">地理院 淡色地図</option>
+        <option value="std">地理院 標準地図</option>
+        <option value="osm">OpenStreetMap</option>
+      </select>
+    </label>
+    <label>ズーム
+      <select id="zoom">
+        <option>13</option><option>14</option><option>15</option><option selected>16</option><option>17</option><option>18</option>
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    <label>カメラ固定枠
+      <select id="dz">
+        <option value="0.12">小</option>
+        <option value="0.25" selected>中</option>
+        <option value="0.38">大</option>
+      </select>
+    </label>
+    <label>向き
+      <select id="orient"><option value="port">縦 9:16 (720×1280)</option><option value="land">横 16:9 (1280×720)</option><option value="sq">正方形 1:1 (720×720)</option></select>
+    </label>
+    <label>長さ(秒)
+      <input type="number" id="dur" value="30" min="5" max="120">
+    </label>
+  </div>
+  <div class="row">
+    <label>フォント
+      <select id="font">
+        <option value="std">標準ゴシック</option>
+        <option value="orbitron">Orbitron（SF・デジタル風）</option>
+        <option value="oswald">Oswald（縦長で力強い）</option>
+        <option value="rajdhani">Rajdhani（メーター風）</option>
+        <option value="mplus">M PLUS 1 Code（等幅・日本語◎）</option>
+        <option value="dot">DotGothic16（ドット）</option>
+        <option value="dela">Dela Gothic One（極太）</option>
+      </select>
+    </label>
+    <label>休憩とみなす停止（分以上）
+      <input type="number" id="brk" value="10" min="1" max="600" step="1" inputmode="numeric">
+    </label>
+  </div>
+  <div class="row">
+    <label class="chk"><input type="checkbox" id="compress" checked>停止区間を短縮</label>
+    <label class="chk"><input type="checkbox" id="smooth">GPSのブレを平滑化</label>
+    <label class="chk"><input type="checkbox" id="opening" checked>オープニング（日付・稼働時間・全軌跡）</label>
+    <label class="chk"><input type="checkbox" id="showAll" checked>全軌跡を最初から薄く表示</label>
+    <label class="chk"><input type="checkbox" id="fade" checked>残像フェード</label>
+    <label class="chk"><input type="checkbox" id="showStop">停止時間（累計）を表示</label>
+    <label class="chk"><input type="checkbox" id="showBreak">休憩時間カウンターを表示</label>
+    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（直近3件）を表示</label>
+  </div>
+</div>
+
+<div class="card">
+  <canvas id="cv" width="720" height="1280"></canvas>
+  <input type="range" id="scrub" min="0" max="899" value="0" disabled>
+  <div class="row" style="margin-top:8px">
+    <button id="play" disabled>▶ 再生</button>
+    <button id="rec" class="sub" disabled>● 動画を保存</button>
+  </div>
+  <div id="status">GPXファイルを選んでください</div>
+  <details id="stopsBox" style="display:none"><summary id="stopsSum">停止区間一覧</summary><div id="stopsList"></div></details>
+  <div class="note">枠の中で動いている間はカメラが動きません。枠から出たときだけスクロールします。</div>
+  <div id="result"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const FPS=30;
+const $=id=>document.getElementById(id);
+const canvas=$('cv');let ctx=canvas.getContext('2d');
+let oc=null,octx=null,OP=0,EP=0,TOT=0,Zo=10,es=1,st=1,opCx=0,opCy=0;
+const MAPS={
+  pale:{url:(z,x,y)=>'https://cyberjapandata.gsi.go.jp/xyz/pale/'+z+'/'+x+'/'+y+'.png',attr:'出典：国土地理院'},
+  std:{url:(z,x,y)=>'https://cyberjapandata.gsi.go.jp/xyz/std/'+z+'/'+x+'/'+y+'.png',attr:'出典：国土地理院'},
+  osm:{url:(z,x,y)=>'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png',attr:'© OpenStreetMap contributors'}
+};
+
+const FONTS={
+  std:{css:'sans-serif',wb:'bold',wn:'normal'},
+  orbitron:{css:'"Orbitron","Noto Sans JP",sans-serif',wb:'700',wn:'500',fam:'Orbitron'},
+  oswald:{css:'"Oswald","Noto Sans JP",sans-serif',wb:'700',wn:'500',fam:'Oswald'},
+  rajdhani:{css:'"Rajdhani","Noto Sans JP",sans-serif',wb:'700',wn:'600',fam:'Rajdhani'},
+  mplus:{css:'"M PLUS 1 Code","Noto Sans JP",monospace',wb:'700',wn:'500',fam:'M PLUS 1 Code'},
+  dot:{css:'"DotGothic16","Noto Sans JP",sans-serif',wb:'400',wn:'400',fam:'DotGothic16'},
+  dela:{css:'"Dela Gothic One","Noto Sans JP",sans-serif',wb:'400',wn:'400',fam:'Dela Gothic One'}
+};
+function fnt(size,bold){const c=FONTS[$('font').value]||FONTS.std;return (bold?c.wb:c.wn)+' '+size+'px '+c.css;}
+async function ensureFont(){
+  const c=FONTS[$('font').value];
+  if(!c||!c.fam) return;
+  try{
+    await Promise.race([
+      Promise.all([c.wb,c.wn].map(w=>document.fonts.load(w+' 40px "'+c.fam+'"','0123456789:停止今回累計秒分時間月火水木金土日'))),
+      new Promise(r=>setTimeout(r,4000))
+    ]);
+  }catch(e){}
+}
+let pts=[],hasTime=false,cw=null;
+let W=720,H=1280,N=0,Z=16;
+let wx,wy,sx,sy,sc,camX,camY,mkX,mkY,mkT,mkW,mkS,mkR,mkB,mkBc,mkBin,stopCum,stopRun,inStopArr,stopDurArr,breakCum,breakIn,breakCnt,stopRuns=[],stopTotal=0;
+let curF=0,playing=false,raf=0,busy=false,drawPending=false;
+
+function status(s){$('status').textContent=s;}
+
+/* ---------- GPX ---------- */
+function parseGPX(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  let els=[...doc.getElementsByTagName('trkpt')];
+  if(!els.length) els=[...doc.getElementsByTagName('rtept')];
+  let list=els.map(e=>{
+    const te=e.getElementsByTagName('time')[0];
+    return {lat:parseFloat(e.getAttribute('lat')),lon:parseFloat(e.getAttribute('lon')),t:te?Date.parse(te.textContent):NaN};
+  }).filter(p=>isFinite(p.lat)&&isFinite(p.lon));
+  hasTime=list.length>1&&list.every(p=>isFinite(p.t));
+  if(hasTime){
+    const out=[];
+    for(const p of list){ if(!out.length||p.t>out[out.length-1].t) out.push(p); }
+    list=out;
+  } else {
+    list.forEach((p,i)=>p.t=i*1000);
+  }
+  return list;
+}
+
+function smoothPts(list,half){
+  const n=list.length,out=new Array(n);
+  for(let i=0;i<n;i++){
+    let a=0,o=0,c=0;
+    for(let j=Math.max(0,i-half);j<=Math.min(n-1,i+half);j++){a+=list[j].lat;o+=list[j].lon;c++;}
+    out[i]={lat:a/c,lon:o/c,t:list[i].t};
+  }
+  return out;
+}
+
+function meters(a,b){
+  const dy=(b.lat-a.lat)*110540;
+  const dx=(b.lon-a.lon)*111320*Math.cos((a.lat+b.lat)*Math.PI/360);
+  return Math.hypot(dx,dy);
+}
+
+function buildTimeline(compress){
+  const n=pts.length;
+  cw=new Float64Array(n);
+  stopCum=new Float64Array(n);
+  stopRun=new Float64Array(n);
+  inStopArr=new Uint8Array(n);
+  stopDurArr=new Float64Array(n);
+  stopRuns=[];
+  // 停止判定: 30秒間の移動が25m未満なら「停止」
+  const slow=new Uint8Array(n);
+  if(hasTime){
+    const diff=new Int32Array(n+2);
+    let j=0;
+    for(let i=0;i<n-1;i++){
+      if(j<i+1) j=i+1;
+      while(j<n-1&&pts[j].t-pts[i].t<30000) j++;
+      if(meters(pts[i],pts[j])<25){diff[i+1]++;diff[j+1]--;}
+    }
+    let c=0;
+    for(let i=0;i<n;i++){c+=diff[i];slow[i]=c>0?1:0;}
+    // 60秒以上続く停止だけを数える
+    const inStop=new Uint8Array(n);
+    let rs=-1;
+    const flush=e=>{
+      if(rs>=1){
+        const dur=(pts[e].t-pts[rs-1].t)/1000;
+        if(dur>=60){
+          for(let k=rs;k<=e;k++){inStop[k]=1;inStopArr[k]=1;stopDurArr[k]=dur;stopRun[k]=(pts[k].t-pts[rs-1].t)/1000;}
+          stopRuns.push({s:pts[rs-1].t,e:pts[e].t});
+        }
+      }
+      rs=-1;
+    };
+    for(let i=1;i<n;i++){
+      if(slow[i]){ if(rs<0) rs=i; } else flush(i-1);
+    }
+    flush(n-1);
+    for(let i=1;i<n;i++) stopCum[i]=stopCum[i-1]+(inStop[i]?(pts[i].t-pts[i-1].t)/1000:0);
+  }
+  stopTotal=stopCum[n-1];
+  for(let i=1;i<n;i++){
+    const d=meters(pts[i-1],pts[i]);
+    const dt=(pts[i].t-pts[i-1].t)/1000;
+    let w;
+    if(!hasTime) w=d;
+    else if(!compress) w=dt;
+    else if(dt>60) w=d/15;
+    else if(slow[i]) w=dt*0.03;
+    else w=dt;
+    cw[i]=cw[i-1]+Math.max(w,1e-3);
+  }
+}
+
+function brkMin(){const v=parseFloat($('brk').value);return isFinite(v)&&v>0?v:10;}
+
+function computeBreak(){
+  const n=pts.length,thr=brkMin()*60;
+  breakCum=new Float64Array(n);breakIn=new Uint8Array(n);breakCnt=new Int32Array(n);
+  for(let i=1;i<n;i++){
+    const inb=inStopArr[i]&&stopDurArr[i]>=thr;
+    breakIn[i]=inb?1:0;
+    breakCum[i]=breakCum[i-1]+(inb?(pts[i].t-pts[i-1].t)/1000:0);
+    breakCnt[i]=breakCnt[i-1]+(inb&&!breakIn[i-1]?1:0);
+  }
+}
+
+function fmtDurS(sec){
+  sec=Math.round(sec);
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),r=sec%60;
+  const mm=h>0?String(m).padStart(2,'0'):String(m);
+  return (h>0?h+'時間':'')+mm+'分'+String(r).padStart(2,'0')+'秒';
+}
+function fmtDur(sec){
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
+  return h>0?h+'時間'+m+'分':m+'分';
+}
+
+const P={i:1,fr:0};
+function posAt(u){
+  const n=cw.length,target=u*cw[n-1];
+  let lo=1,hi=n-1;
+  while(lo<hi){const m=(lo+hi)>>1; if(cw[m]<target) lo=m+1; else hi=m;}
+  const i=lo,span=cw[i]-cw[i-1];
+  P.i=i;P.fr=span>0?Math.min(1,Math.max(0,(target-cw[i-1])/span)):0;
+  return P;
+}
+
+/* ---------- prepare ---------- */
+function prepare(){
+  if(!pts.length) return;
+  const ori=$('orient').value;
+  W=ori==='land'?1280:720;H=ori==='land'?720:(ori==='sq'?720:1280);
+  canvas.width=W;canvas.height=H;
+  oc=document.createElement('canvas');oc.width=W;oc.height=H;octx=oc.getContext('2d');
+  Z=+$('zoom').value;
+  const ws=256*Math.pow(2,Z),n=pts.length;
+  wx=new Float64Array(n);wy=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    const p=pts[i],s=Math.sin(p.lat*Math.PI/180);
+    wx[i]=(p.lon+180)/360*ws;
+    wy[i]=(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*ws;
+  }
+  buildTimeline($('compress').checked);
+  computeBreak();
+
+  // 描画用に間引いた経路
+  const si=[0];let lx=wx[0],ly=wy[0];
+  for(let i=1;i<n-1;i++){
+    if(Math.hypot(wx[i]-lx,wy[i]-ly)>=2){si.push(i);lx=wx[i];ly=wy[i];}
+  }
+  si.push(n-1);
+  sx=new Float64Array(si.length);sy=new Float64Array(si.length);sc=new Float64Array(si.length);
+  si.forEach((k,j)=>{sx[j]=wx[k];sy[j]=wy[k];sc[j]=cw[k];});
+
+  // フレームごとのマーカー位置とカメラ位置(デッドゾーン方式)
+  N=Math.max(2,Math.round((+$('dur').value||30)*FPS));
+  camX=new Float64Array(N);camY=new Float64Array(N);
+  mkX=new Float64Array(N);mkY=new Float64Array(N);mkT=new Float64Array(N);mkW=new Float64Array(N);mkS=new Float64Array(N);mkR=new Float64Array(N);mkB=new Float64Array(N);mkBc=new Int32Array(N);mkBin=new Uint8Array(N);
+  const dz=+$('dz').value,dzx=dz*W,dzy=dz*H,limx=0.45*W,limy=0.45*H;
+  // 下の白い文字枠に現在地が入り込まないよう、下側の余白を確保する
+  const kk=Math.min(W,H)/720;
+  const nLeft=hasTime?($('showStop').checked?1:0)+($('showBreak').checked?1:0):0;
+  const nHist=hasTime&&$('showRun').checked?3:0;
+  const phMax=Math.max(46*kk+26*kk*nLeft,nHist?nHist*26*kk+8*kk:0)+44*kk;
+  const limDn=Math.max(0.15*H,H/2-(phMax+22*kk)-36*kk);   // 中心から下へ行ける最大距離
+  const dzyDn=Math.min(dzy,limDn),limUp=limy;
+  let cx=0,cy=0,recenter=false;
+  const doCenter=true,minWH=Math.min(W,H);
+  for(let f=0;f<N;f++){
+    const u=f/(N-1),p=posAt(u),i=p.i,fr=p.fr;
+    const mx=wx[i-1]+(wx[i]-wx[i-1])*fr,my=wy[i-1]+(wy[i]-wy[i-1])*fr;
+    mkX[f]=mx;mkY[f]=my;mkW[f]=u*cw[n-1];
+    mkT[f]=pts[i-1].t+(pts[i].t-pts[i-1].t)*fr;
+    mkS[f]=stopCum[i-1]+(stopCum[i]-stopCum[i-1])*fr;
+    mkR[f]=inStopArr[i]?stopRun[i-1]+(stopRun[i]-stopRun[i-1])*fr:0;
+    mkB[f]=breakCum[i-1]+(breakCum[i]-breakCum[i-1])*fr;mkBc[f]=breakCnt[i];mkBin[f]=breakIn[i];
+    if(f===0){cx=mx;cy=my;}
+    if(doCenter){
+      // 枠から出たら、ゆっくり中央へ寄せる
+      if(Math.abs(mx-cx)>dzx||my-cy>dzyDn||cy-my>dzy) recenter=true;
+      if(recenter){
+        cx+=(mx-cx)*0.07;cy+=(my-cy)*0.07;
+        if(Math.hypot(mx-cx,my-cy)<0.03*minWH) recenter=false;
+      }
+    } else {
+      let tx=cx,ty=cy;
+      if(mx-cx>dzx) tx=mx-dzx; else if(cx-mx>dzx) tx=mx+dzx;
+      if(my-cy>dzyDn) ty=my-dzyDn; else if(cy-my>dzy) ty=my+dzy;
+      cx+=(tx-cx)*0.25;cy+=(ty-cy)*0.25;
+    }
+    if(mx-cx>limx) cx=mx-limx; else if(cx-mx>limx) cx=mx+limx;
+    if(my-cy>limDn) cy=my-limDn; else if(cy-my>limUp) cy=my+limUp;
+    camX[f]=cx;camY[f]=cy;
+  }
+  // オープニング用の全体表示
+  OP=$('opening').checked?4*FPS:0;
+  EP=$('fade').checked?3*FPS:0;
+  TOT=OP+N+EP;
+  let mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
+  for(let i=0;i<n;i++){if(wx[i]<mnx)mnx=wx[i];if(wx[i]>mxx)mxx=wx[i];if(wy[i]<mny)mny=wy[i];if(wy[i]>mxy)mxy=wy[i];}
+  // 全軌跡が画面いっぱいになる倍率（タイルは整数ズーム＋拡大で表示）
+  const fit=Math.min(0.94*W/Math.max(mxx-mnx,1),0.80*H/Math.max(mxy-mny,1));
+  const Zf=Math.max(3,Math.min(18,Z+Math.log2(fit)));
+  Zo=Math.floor(Zf+1e-9);es=Math.pow(2,Zf-Zo);st=Math.pow(2,Zf-Z);
+  opCx=(mnx+mxx)/2*st;opCy=(mny+mxy)/2*st-0.08*H;
+  const sl=$('scrub');
+  sl.max=TOT-1;sl.disabled=false;
+  curF=Math.min(curF,TOT-1);sl.value=curF;
+  $('play').disabled=false;$('rec').disabled=false;
+  renderStops();
+  draw(curF);
+}
+
+function renderStops(){
+  const box=$('stopsBox');
+  if(!hasTime){box.style.display='none';return;}
+  box.style.display='block';
+  const thrS=brkMin()*60;
+  let bc=0,bt=0;
+  for(const r of stopRuns){const d=(r.e-r.s)/1000;if(d>=thrS){bc++;bt+=d;}}
+  $('stopsSum').textContent='停止 '+stopRuns.length+'件・合計 '+fmtDurS(stopTotal)+' ／ 休憩（'+brkMin()+'分以上）'+bc+'回・合計 '+fmtDurS(bt);
+  $('stopsList').textContent=stopRuns.map(r=>fmtTime.format(new Date(r.s))+' 〜 '+fmtTime.format(new Date(r.e))+'  '+fmtDurS((r.e-r.s)/1000)+((r.e-r.s)/1000>=thrS?'  ★休憩':'')).join('\n')||'なし';
+}
+
+/* ---------- tiles ---------- */
+const tiles=new Map();
+function getTile(map,z,x,y){
+  const k=map+'/'+z+'/'+x+'/'+y;
+  let t=tiles.get(k);
+  if(!t){
+    t={ok:false,img:new Image()};
+    t.p=new Promise(res=>{
+      t.img.onload=()=>{t.ok=true;res();requestRedraw();};
+      t.img.onerror=()=>res();
+    });
+    t.img.crossOrigin='anonymous';
+    t.img.src=MAPS[map].url(z,x,y);
+    tiles.set(k,t);
+  }
+  return t;
+}
+function requestRedraw(){
+  if(playing||drawPending||!N) return;
+  drawPending=true;
+  requestAnimationFrame(()=>{drawPending=false;draw(curF);});
+}
+function tileRange(f){
+  const L=camX[f]-W/2,T=camY[f]-H/2;
+  return [Math.floor(L/256),Math.floor((L+W)/256),Math.floor(T/256),Math.floor((T+H)/256)];
+}
+async function prefetch(){
+  const map=$('map').value,max=Math.pow(2,Z),need=new Map();
+  for(let f=0;f<N;f++){
+    const r=tileRange(f);
+    for(let x=r[0];x<=r[1];x++)for(let y=r[2];y<=r[3];y++){
+      if(y<0||y>=max) continue;
+      const xx=((x%max)+max)%max;
+      need.set(xx+','+y,[xx,y]);
+    }
+  }
+  const list=[...need.values()].map(v=>[v[0],v[1],Z]);
+  if(OP>0){
+    const mo=Math.pow(2,Zo),L=opCx-W/2,T=opCy-H/2,ts=256*es;
+    for(let x=Math.floor(L/ts);x<=Math.floor((L+W)/ts);x++)for(let y=Math.floor(T/ts);y<=Math.floor((T+H)/ts);y++){
+      if(y<0||y>=mo) continue;
+      list.push([((x%mo)+mo)%mo,y,Zo]);
+    }
+  }
+  let done=0;const total=list.length;
+  status('地図を読み込み中… 0 / '+total);
+  const worker=async()=>{
+    while(list.length){
+      const [x,y,zz]=list.pop();
+      await getTile(map,zz,x,y).p;
+      done++;
+      if(done%10===0||done===total) status('地図を読み込み中… '+done+' / '+total);
+    }
+  };
+  await Promise.all(Array.from({length:12},worker));
+}
+
+/* ---------- draw ---------- */
+const fmtTime=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
+const fmtDate=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short'});
+
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+
+const fmtDateFull=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+const fmtDay=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'numeric',day:'numeric'});
+
+function draw(F){
+  if(!N) return;
+  F=Math.max(0,Math.min(TOT-1,F|0));
+  if(F>=OP+N){drawBody(N-1,Math.min(1,(F-OP-N+1)/Math.max(1,EP)));return;}
+  if(F>=OP){drawBody(F-OP,0);return;}
+  const XF=Math.round(0.5*FPS);
+  if(F>=OP-XF){
+    drawBody(0,0);
+    const main=ctx;ctx=octx;
+    drawOpening(F);
+    ctx=main;
+    ctx.globalAlpha=1-(F-(OP-XF))/XF;
+    ctx.drawImage(oc,0,0);
+    ctx.globalAlpha=1;
+  } else drawOpening(F);
+}
+
+function drawOpening(fo){
+  const map=$('map').value,max=Math.pow(2,Zo),k=Math.min(W,H)/720;
+  const L=opCx-W/2,T=opCy-H/2,ts=256*es;
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#e9e9e4';ctx.fillRect(0,0,W,H);
+  for(let x=Math.floor(L/ts);x<=Math.floor((L+W)/ts);x++)for(let y=Math.floor(T/ts);y<=Math.floor((T+H)/ts);y++){
+    if(y<0||y>=max) continue;
+    const t=getTile(map,Zo,((x%max)+max)%max,y);
+    if(t.ok){
+      const dx=Math.round(x*ts-L),dy=Math.round(y*ts-T);
+      ctx.drawImage(t.img,dx,dy,Math.round((x+1)*ts-L)-dx,Math.round((y+1)*ts-T)-dy);
+    }
+  }
+  // 全軌跡を明滅
+  const so=st,ph=0.5+0.5*Math.sin(fo/FPS*2*Math.PI*1.1-Math.PI/2);
+  const al=0.25+0.75*ph;
+  ctx.save();
+  ctx.translate(-Math.round(L),-Math.round(T));ctx.scale(so,so);
+  ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(sx[0],sy[0]);
+  for(let i=1;i<sc.length;i++) ctx.lineTo(sx[i],sy[i]);
+  ctx.strokeStyle='rgba(255,255,255,'+(al*0.8).toFixed(3)+')';ctx.lineWidth=9*k/so;ctx.stroke();
+  ctx.strokeStyle='rgba(229,57,53,'+al.toFixed(3)+')';ctx.lineWidth=5*k/so;ctx.stroke();
+  const e=sc.length-1;
+  ctx.beginPath();ctx.arc(sx[0],sy[0],10*k/so,0,Math.PI*2);ctx.fillStyle='#2e7d32';ctx.fill();ctx.lineWidth=3*k/so;ctx.strokeStyle='#fff';ctx.stroke();
+  ctx.beginPath();ctx.arc(sx[e],sy[e],10*k/so,0,Math.PI*2);ctx.fillStyle='#c62828';ctx.fill();ctx.stroke();
+  ctx.restore();
+  // タイトル
+  const a=Math.min(1,fo/(0.5*FPS)),ease=1-Math.pow(1-a,3);
+  const mg=20*k,ph2=hasTime?150*k:110*k,off=-24*k*(1-ease);
+  ctx.globalAlpha=ease;
+  rrect(mg,mg+off,W-2*mg,ph2,18*k);
+  ctx.fillStyle='rgba(255,255,255,0.92)';ctx.fill();
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  if(hasTime){
+    const t0=pts[0].t,t1=pts[pts.length-1].t;
+    const sameDay=fmtDay.format(new Date(t0))===fmtDay.format(new Date(t1));
+    ctx.fillStyle='#111';ctx.font=fnt(52*k,true);
+    ctx.fillText(fmtDateFull.format(new Date(t0)),W/2,mg+off+66*k);
+    ctx.fillStyle='#444';ctx.font=fnt(30*k,false);
+    ctx.fillText('稼働 '+fmtTime.format(new Date(t0))+' 〜 '+(sameDay?'':'翌 ')+fmtTime.format(new Date(t1))+'（'+fmtDur((t1-t0)/1000)+'）',W/2,mg+off+114*k);
+  } else {
+    ctx.fillStyle='#111';ctx.font=fnt(48*k,true);
+    ctx.fillText('GPS 軌跡',W/2,mg+off+72*k);
+  }
+  ctx.globalAlpha=1;ctx.textAlign='left';
+}
+
+function drawBody(f,rest){
+  f=Math.max(0,Math.min(N-1,f|0));
+  rest=rest||0;
+  const map=$('map').value,max=Math.pow(2,Z),k=Math.min(W,H)/720;
+  const L=Math.round(camX[f]-W/2),T=Math.round(camY[f]-H/2);
+  ctx.fillStyle='#e9e9e4';ctx.fillRect(0,0,W,H);
+
+  const x0=Math.floor(L/256),x1=Math.floor((L+W)/256),y0=Math.floor(T/256),y1=Math.floor((T+H)/256);
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+    if(y<0||y>=max) continue;
+    const t=getTile(map,Z,((x%max)+max)%max,y);
+    if(t.ok) ctx.drawImage(t.img,x*256-L,y*256-T,256,256);
+  }
+
+  // 経路
+  ctx.save();
+  ctx.translate(-L,-T);
+  ctx.lineJoin='round';ctx.lineCap='round';
+  const cnt=sc.length;
+  if($('showAll').checked){
+    ctx.beginPath();ctx.moveTo(sx[0],sy[0]);
+    for(let i=1;i<cnt;i++) ctx.lineTo(sx[i],sy[i]);
+    ctx.strokeStyle='rgba(40,80,200,0.45)';ctx.lineWidth=6*k;ctx.stroke();
+  }
+
+  const w=mkW[f];
+  let lo=0,hi=cnt-1;
+  while(lo<hi){const m=(lo+hi+1)>>1; if(sc[m]<=w) lo=m; else hi=m-1;}
+  // 通った道: 古い部分ほど薄く、最後に濃く戻す
+  const Wt=cw[cw.length-1],horizon=0.07*Wt;
+  const restore=rest*rest*(3-2*rest);
+  const B=24,fadeOn=$('fade').checked;
+  for(let b=0;b<B;b++){
+    const s0=Math.floor(lo*b/B),e0=Math.floor(lo*(b+1)/B);
+    if(e0===s0&&b<B-1) continue;
+    const age=w-sc[Math.min(lo,Math.floor((s0+e0)/2))];
+    let al=Math.max(0.12,1-age/horizon);
+    al=al+(1-al)*restore;
+    if(!fadeOn) al=1;
+    ctx.beginPath();ctx.moveTo(sx[s0],sy[s0]);
+    for(let i=s0+1;i<=e0;i++) ctx.lineTo(sx[i],sy[i]);
+    if(b===B-1) ctx.lineTo(mkX[f],mkY[f]);
+    ctx.strokeStyle='rgba(229,57,53,'+al.toFixed(3)+')';ctx.lineWidth=7*k;ctx.stroke();
+  }
+
+  // 現在地
+  ctx.beginPath();ctx.arc(mkX[f],mkY[f],15*k,0,Math.PI*2);
+  ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(mkX[f],mkY[f],10*k,0,Math.PI*2);
+  ctx.fillStyle='#e53935';ctx.fill();
+  ctx.restore();
+
+  // 文字情報は下の大きな枠に集約（左: 時刻と累計 / 右: 停止履歴3行）
+  const mg=20*k,bx=mg+14*k,bw=W-2*mg-28*k,pr=f/(N-1);
+  const thrS=brkMin()*60,brkOn=$('showBreak').checked;
+  const left=[];
+  if(hasTime){
+    if($('showStop').checked) left.push({t:'停止 '+fmtDurS(mkS[f]),c:'#555',b:false});
+    if(brkOn) left.push({t:'休憩 '+mkBc[f]+'回 '+fmtDurS(mkB[f])+(mkBin[f]?'  休憩中':''),c:'#c62828',b:!!mkBin[f]});
+  }
+  let rows=[];
+  if(hasTime&&$('showRun').checked){
+    const done=[];
+    for(const r of stopRuns){ if(r.e<=mkT[f]) done.push(r); else break; }
+    rows=done.slice(-3).map((r,i,a2)=>({t:r.s,d:(r.e-r.s)/1000,a:0.5+0.5*(i+1)/a2.length,live:false}));
+    if(mkR[f]>0) rows.push({t:mkT[f]-mkR[f]*1000,d:mkR[f],a:1,live:true});
+    rows=rows.slice(-3);
+  }
+  const topArea=Math.max(46*k+26*k*left.length,rows.length*26*k+8*k);
+  const ph=topArea+44*k,py=H-ph-22*k,bh=8*k,by=py+ph-27*k;
+  rrect(mg,py,W-2*mg,ph,16*k);
+  ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fill();
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  if(hasTime){
+    const d=new Date(mkT[f]),base=py+44*k;
+    ctx.fillStyle='#111';ctx.font=fnt(44*k,true);
+    const ts=fmtTime.format(d);
+    ctx.fillText(ts,bx,base);
+    const tw=ctx.measureText(ts).width;
+    ctx.fillStyle='#444';ctx.font=fnt(22*k,false);
+    ctx.fillText(fmtDate.format(d),bx+tw+12*k,base);
+    left.forEach((l,j)=>{
+      ctx.fillStyle=l.c;ctx.font=fnt(21*k,l.b);
+      ctx.fillText(l.t,bx,base+26*k*(j+1));
+    });
+    ctx.textAlign='right';
+    rows.forEach((r,i)=>{
+      const isBrk=brkOn&&r.d>=thrS;
+      ctx.globalAlpha=r.a;
+      ctx.fillStyle=r.live?'#e53935':(isBrk?'#e65100':'#333');
+      ctx.font=fnt(19*k,r.live||isBrk);
+      ctx.fillText(fmtTime.format(new Date(r.t))+'  '+fmtDurS(r.d),bx+bw,py+29*k+26*k*i);
+    });
+    ctx.globalAlpha=1;ctx.textAlign='left';
+  } else {
+    ctx.fillStyle='#111';ctx.font=fnt(40*k,true);
+    ctx.fillText(Math.round(pr*100)+'%',bx,py+44*k);
+  }
+  rrect(bx,by,bw,bh,bh/2);ctx.fillStyle='#c4c4c4';ctx.fill();
+  if(pr>0){rrect(bx,by,Math.max(bh,bw*pr),bh,bh/2);ctx.fillStyle='#e53935';ctx.fill();}
+  ctx.beginPath();ctx.arc(bx+bw*pr,by+bh/2,11*k,0,Math.PI*2);
+  ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=3*k;ctx.strokeStyle='#e53935';ctx.stroke();
+
+  // 出典
+  ctx.font='normal '+(13*k)+'px sans-serif';ctx.textAlign='right';
+  ctx.lineWidth=3*k;ctx.strokeStyle='rgba(255,255,255,0.9)';
+  ctx.strokeText(MAPS[map].attr,W-mg,H-6*k);
+  ctx.fillStyle='#333';ctx.fillText(MAPS[map].attr,W-mg,H-6*k);
+}
+
+/* ---------- 再生 ---------- */
+function play(onEnd){
+  if(playing) return;
+  if(curF>=TOT-1) curF=0;
+  playing=true;$('play').textContent='■ 停止';
+  const start=performance.now()-curF/FPS*1000;
+  const loop=now=>{
+    if(!playing) return;
+    const f=Math.min(TOT-1,Math.floor((now-start)/1000*FPS));
+    curF=f;draw(f);$('scrub').value=f;
+    if(f>=TOT-1){
+      playing=false;$('play').textContent='▶ 再生';
+      if(onEnd) onEnd();
+      return;
+    }
+    raf=requestAnimationFrame(loop);
+  };
+  raf=requestAnimationFrame(loop);
+}
+function stop(){
+  playing=false;cancelAnimationFrame(raf);$('play').textContent='▶ 再生';
+}
+
+/* ---------- 録画 ---------- */
+async function record(){
+  if(typeof MediaRecorder==='undefined'||!canvas.captureStream){
+    status('このブラウザは動画保存に対応していません（Chromeで開いてください）');return;
+  }
+  stop();busy=true;setBusy(true);
+  await ensureFont();
+  await prefetch();
+  const mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    .find(m=>MediaRecorder.isTypeSupported(m))||'';
+  const stream=canvas.captureStream(FPS);
+  const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:6000000}:{videoBitsPerSecond:6000000});
+  const chunks=[];
+  rec.ondataavailable=e=>{if(e.data&&e.data.size) chunks.push(e.data);};
+  rec.onstop=()=>{
+    const type=(rec.mimeType||mime||'video/webm').split(';')[0];
+    const ext=type.indexOf('mp4')>=0?'mp4':'webm';
+    const blob=new Blob(chunks,{type});
+    const url=URL.createObjectURL(blob);
+    $('result').innerHTML='';
+    const v=document.createElement('video');v.src=url;v.controls=true;v.playsInline=true;v.muted=true;
+    const a=document.createElement('a');a.href=url;a.download='gpx-map.'+ext;a.className='dl';a.textContent='動画をダウンロード (.'+ext+')';
+    $('result').append(a,v);
+    status('保存できました（'+(blob.size/1048576).toFixed(1)+' MB）');
+    busy=false;setBusy(false);
+  };
+  curF=0;draw(0);
+  status('録画中… '+Math.round(TOT/FPS)+'秒');
+  rec.start();
+  setTimeout(()=>play(()=>setTimeout(()=>rec.stop(),400)),300);
+}
+
+function setBusy(b){
+  $('play').disabled=b||!N;$('rec').disabled=b||!N;
+  $('file').disabled=b;
+}
+
+/* ---------- events ---------- */
+function loadPoints(raw){
+  let list=raw;
+  if($('smooth').checked&&list.length>4) list=smoothPts(list,1);
+  pts=list;
+}
+let rawPts=[];
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f) return;
+  stop();
+  try{
+    rawPts=parseGPX(await f.text());
+    if(rawPts.length<2){status('GPXに有効な点がありません');return;}
+    loadPoints(rawPts);curF=0;prepare();
+    let info=rawPts.length+'点';
+    if(hasTime){info+='  '+fmtDate.format(new Date(rawPts[0].t))+' '+fmtTime.format(new Date(rawPts[0].t))+' 〜 '+fmtTime.format(new Date(rawPts[rawPts.length-1].t));}
+    else info+='（時刻データなし）';
+    status(info);
+    $('result').innerHTML='';
+  }catch(err){status('読み込みに失敗しました: '+err.message);}
+});
+['map','zoom','dz','orient','dur','compress','opening','fade','brk'].forEach(id=>$(id).addEventListener('change',()=>{
+  if(busy||!rawPts.length) return;
+  stop();prepare();
+}));
+$('font').addEventListener('change',async()=>{await ensureFont();if(N) draw(curF);});
+['showStop','showRun','showAll','showBreak'].forEach(id=>$(id).addEventListener('change',()=>{if(N) draw(curF);}));
+$('smooth').addEventListener('change',()=>{
+  if(busy||!rawPts.length) return;
+  stop();loadPoints(rawPts);prepare();
+});
+$('scrub').addEventListener('input',e=>{
+  if(busy) return;
+  stop();curF=+e.target.value;draw(curF);
+});
+$('play').addEventListener('click',async()=>{
+  if(playing){stop();return;}
+  if(busy) return;
+  busy=true;setBusy(true);
+  await ensureFont();
+  await prefetch();
+  busy=false;setBusy(false);
+  status('再生中');
+  play(()=>status('再生終了'));
+});
+$('rec').addEventListener('click',record);
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+})();
+</script>
+</body>
+</html>
