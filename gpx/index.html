@@ -120,7 +120,7 @@
     <label class="chk"><input type="checkbox" id="fade" checked>残像フェード</label>
     <label class="chk"><input type="checkbox" id="showStop">停止時間（累計）を表示</label>
     <label class="chk"><input type="checkbox" id="showBreak">休憩時間カウンターを表示</label>
-    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（8件ずつ）を表示</label>
+    <label class="chk"><input type="checkbox" id="showRun">停止の履歴（8件）を表示</label>
   </div>
 </div>
 
@@ -605,17 +605,17 @@ function drawBody(f,rest){
   if(hasTime&&$('showRun').checked){
     const done=[];
     for(const r of stopRuns){ if(r.e<=mkT[f]) done.push(r); else break; }
-    // 位置が動かないよう、8件ずつのページ表示（満杯になったら次のページを最初から）
+    // 位置は固定の8スロット。9件目からは一番古い（すでに薄い）スロットに順に入れ替わる
     const fadeH=$('fade').checked;
     const all=done.map(r=>{
-      let a=fadeH?Math.max(0.2,1-(f-r.ef)/300):1;   // 終わってから約10秒かけて薄くなる
+      let a=fadeH?Math.max(0,1-(f-r.ef)/360):1;   // 終わってから約12秒かけてじわっと消える
       a=a+(1-a)*restore;                          // 最後のエンディングで濃く戻る
       return {t:r.s,d:(r.e-r.s)/1000,a:a,live:false};
     });
     const ls=mkT[f]-mkR[f]*1000;
     if(mkR[f]>0&&!(done.length&&Math.abs(done[done.length-1].s-ls)<2000)) all.push({t:ls,d:mkR[f],a:1,live:true});
-    const pg=Math.max(0,Math.floor((all.length-1)/8));
-    rows=all.slice(pg*8,pg*8+8);
+    const st0=Math.max(0,all.length-8);
+    rows=all.slice(st0).map((r,j)=>Object.assign(r,{slot:(st0+j)%8}));
   }
   const histRows=(hasTime&&$('showRun').checked)?4:0;
   const topArea=Math.max(46*k+26*k*left.length,histRows?histRows*24*k+8*k:0);
@@ -639,7 +639,7 @@ function drawBody(f,rest){
     ctx.font=fnt(17*k,true);
     const colW=ctx.measureText('00:00  1時間00分00秒').width,gap=16*k;
     rows.forEach((r,i)=>{
-      const isBrk=brkOn&&r.d>=thrS,c=i<4?0:1,rw=i%4;
+      const isBrk=brkOn&&r.d>=thrS,c=r.slot<4?0:1,rw=r.slot%4;
       ctx.globalAlpha=r.a;
       ctx.fillStyle=r.live?'#e53935':(isBrk?'#e65100':'#333');
       ctx.font=fnt(17*k,r.live||isBrk);
