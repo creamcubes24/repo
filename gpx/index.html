@@ -375,6 +375,9 @@ function prepare(){
     let lo2=0,hi2=N;
     while(lo2<hi2){const m=(lo2+hi2)>>1; if(mkT[m]>=r.e) hi2=m; else lo2=m+1;}
     r.ef=lo2;
+    let l3=0,h3=N;
+    while(l3<h3){const m=(l3+h3)>>1; if(mkT[m]>=r.s) h3=m; else l3=m+1;}
+    r.sf=l3;
   }
   // オープニング用の全体表示
   OP=$('opening').checked?4*FPS:0;
@@ -603,19 +606,20 @@ function drawBody(f,rest){
   }
   let rows=[];
   if(hasTime&&$('showRun').checked){
-    const done=[];
-    for(const r of stopRuns){ if(r.e<=mkT[f]) done.push(r); else break; }
-    // 位置は固定の8スロット。9件目からは一番古い（すでに薄い）スロットに順に入れ替わる
-    const fadeH=$('fade').checked;
-    const all=done.map(r=>{
-      let a=fadeH?Math.max(0,1-(f-r.ef)/360):1;   // 終わってから約12秒かけてじわっと消える
-      a=a+(1-a)*restore;                          // 最後のエンディングで濃く戻る
-      return {t:r.s,d:(r.e-r.s)/1000,a:a,live:false};
-    });
-    const ls=mkT[f]-mkR[f]*1000;
-    if(mkR[f]>0&&!(done.length&&Math.abs(done[done.length-1].s-ls)<2000)) all.push({t:ls,d:mkR[f],a:1,live:true});
-    const st0=Math.max(0,all.length-8);
-    rows=all.slice(st0).map((r,j)=>Object.assign(r,{slot:(st0+j)%8}));
+    // 開始済みの停止（早い順）。位置は固定の8スロットで、9件目以降は古い枠に順に入れ替わる
+    let c=0;
+    while(c<stopRuns.length&&stopRuns[c].sf<=f) c++;
+    const fadeH=$('fade').checked,TR=24;
+    for(let j=Math.max(0,c-8);j<c;j++){
+      const r=stopRuns[j];
+      let rank=0;                                   // 自分より新しい停止の数（件数）
+      for(let m=j+1;m<c;m++) rank+=Math.min(1,(f-stopRuns[m].sf)/TR);
+      let a=fadeH?Math.max(0,1-rank/6):1;           // 6件前で消える＝書き換える枠の2つ手前は消えている
+      if(fadeH) a*=Math.min(1,(f-r.sf+1)/TR);       // 出始めはふわっと
+      a=a+(1-a)*restore;                            // エンディングで濃く戻る
+      const ended=r.ef<=f;
+      rows.push({t:r.s,d:ended?(r.e-r.s)/1000:mkR[f],a:a,live:!ended,slot:j%8});
+    }
   }
   const histRows=(hasTime&&$('showRun').checked)?4:0;
   const topArea=Math.max(46*k+26*k*left.length,histRows?histRows*24*k+8*k:0);
