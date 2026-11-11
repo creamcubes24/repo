@@ -69,6 +69,7 @@
     <span class="small" id="fname">またはここにファイルをドロップ</span>
   </label>
   <input type="file" id="file" accept=".gpx,application/gpx+xml,text/xml,application/xml,*/*">
+  <button type="button" id="sample" style="width:100%;margin:8px 0 0;background:#fff;color:#1565c0;border:1px solid #1565c0">サンプルで試す（架空のルート）</button>
   <div class="row">
     <label>地図
       <select id="map">
@@ -755,20 +756,42 @@ function loadPoints(raw){
   pts=list;
 }
 let rawPts=[];
+function afterLoad(name){
+  $('fname').textContent=name+'（別のファイルに変える場合はここをタップ）';
+  stop();
+  if(rawPts.length<2){status('GPXに有効な点がありません');return;}
+  loadPoints(rawPts);curF=0;prepare();
+  let info=rawPts.length+'点';
+  if(hasTime){info+='  '+fmtDate.format(new Date(rawPts[0].t))+' '+fmtTime.format(new Date(rawPts[0].t))+' 〜 '+fmtTime.format(new Date(rawPts[rawPts.length-1].t));}
+  else info+='（時刻データなし）';
+  status(info);
+  $('result').innerHTML='';
+}
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f) return;
-  $('fname').textContent=f.name+'（別のファイルに変える場合はここをタップ）';
-  stop();
-  try{
-    rawPts=parseGPX(await f.text());
-    if(rawPts.length<2){status('GPXに有効な点がありません');return;}
-    loadPoints(rawPts);curF=0;prepare();
-    let info=rawPts.length+'点';
-    if(hasTime){info+='  '+fmtDate.format(new Date(rawPts[0].t))+' '+fmtTime.format(new Date(rawPts[0].t))+' 〜 '+fmtTime.format(new Date(rawPts[rawPts.length-1].t));}
-    else info+='（時刻データなし）';
-    status(info);
-    $('result').innerHTML='';
-  }catch(err){status('読み込みに失敗しました: '+err.message);}
+  try{ rawPts=parseGPX(await f.text()); afterLoad(f.name); }
+  catch(err){status('読み込みに失敗しました: '+err.message);}
+});
+/* 架空サンプル（実在の走行データではありません） */
+function makeSample(){
+  const wp=[[35.7295,139.7109],[35.7100,139.7040],[35.6896,139.7005],[35.6580,139.7016],[35.6620,139.7300],[35.6812,139.7671],[35.7141,139.7774],[35.7295,139.7109]];
+  const stopAt={2:480,4:240,5:1200,6:300};   // waypoint index -> 停止秒数
+  let t=Date.UTC(2026,0,14,23,0,0),out=[],seed=7;
+  const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647-0.5;};
+  const push=(la,lo)=>out.push({lat:la+rnd()*0.00004,lon:lo+rnd()*0.00004,t});
+  push(wp[0][0],wp[0][1]);
+  for(let i=1;i<wp.length;i++){
+    const [a,b]=wp[i-1],[c,d]=wp[i];
+    const km=Math.hypot((c-a)*111,(d-b)*91);
+    const n=Math.max(6,Math.round(km/(0.06+0.02*Math.abs(Math.sin(i*2))) ));
+    for(let k=1;k<=n;k++){ t+=10000; const u=k/n; push(a+(c-a)*u,b+(d-b)*u); }
+    const w=stopAt[i]||0;
+    for(let s2=10;s2<=w;s2+=10){ t+=10000; push(c,d); }
+  }
+  return out;
+}
+$('sample').addEventListener('click',()=>{
+  rawPts=makeSample();hasTime=true;afterLoad('サンプル');
 });
 ['map','zoom','dz','orient','dur','compress','opening','fade','brk','histN'].forEach(id=>$(id).addEventListener('change',()=>{
   if(busy||!rawPts.length) return;
