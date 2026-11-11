@@ -172,7 +172,7 @@ async function ensureFont(){
 }
 let pts=[],hasTime=false,cw=null;
 let W=720,H=1280,N=0,Z=16;
-let wx,wy,sx,sy,sc,camX,camY,mkX,mkY,mkT,mkW,mkS,mkR,mkB,mkBc,mkBin,stopCum,stopRun,inStopArr,stopDurArr,breakCum,breakIn,breakCnt,stopRuns=[],stopTotal=0;
+let wx,wy,sx,sy,sc,camX,camY,mkX,mkY,mkT,mkW,mkS,mkR,mkB,mkBc,mkBin,stopCum,stopRun,inStopArr,stopDurArr,breakCum,breakIn,breakCnt,breakRun,mkBr,stopRuns=[],stopTotal=0;
 let curF=0,playing=false,raf=0,busy=false,drawPending=false;
 
 function status(s){$('status').textContent=s;}
@@ -270,9 +270,11 @@ function brkMin(){const v=parseFloat($('brk').value);return isFinite(v)&&v>0?v:1
 
 function computeBreak(){
   const n=pts.length,thr=brkMin()*60;
-  breakCum=new Float64Array(n);breakIn=new Uint8Array(n);breakCnt=new Int32Array(n);
+  breakCum=new Float64Array(n);breakIn=new Uint8Array(n);breakCnt=new Int32Array(n);breakRun=new Float64Array(n);
+  let lastBreak=0;
   for(let i=1;i<n;i++){
     const inb=inStopArr[i]&&stopDurArr[i]>=thr;
+    if(inb){lastBreak=stopDurArr[i];breakRun[i]=stopRun[i];} else breakRun[i]=lastBreak;
     breakIn[i]=inb?1:0;
     breakCum[i]=breakCum[i-1]+(inb?(pts[i].t-pts[i-1].t)/1000:0);
     breakCnt[i]=breakCnt[i-1]+(inb&&!breakIn[i-1]?1:0);
@@ -330,7 +332,7 @@ function prepare(){
   // フレームごとのマーカー位置とカメラ位置(デッドゾーン方式)
   N=Math.max(2,Math.round((+$('dur').value||30)*FPS));
   camX=new Float64Array(N);camY=new Float64Array(N);
-  mkX=new Float64Array(N);mkY=new Float64Array(N);mkT=new Float64Array(N);mkW=new Float64Array(N);mkS=new Float64Array(N);mkR=new Float64Array(N);mkB=new Float64Array(N);mkBc=new Int32Array(N);mkBin=new Uint8Array(N);
+  mkX=new Float64Array(N);mkY=new Float64Array(N);mkT=new Float64Array(N);mkW=new Float64Array(N);mkS=new Float64Array(N);mkR=new Float64Array(N);mkB=new Float64Array(N);mkBc=new Int32Array(N);mkBin=new Uint8Array(N);mkBr=new Float64Array(N);
   const dz=+$('dz').value,dzx=dz*W,dzy=dz*H,limx=0.45*W,limy=0.45*H;
   // 下の白い文字枠に現在地が入り込まないよう、下側の余白を確保する
   const kk=Math.min(W,H)/720;
@@ -349,6 +351,7 @@ function prepare(){
     mkS[f]=stopCum[i-1]+(stopCum[i]-stopCum[i-1])*fr;
     mkR[f]=inStopArr[i]?stopRun[i-1]+(stopRun[i]-stopRun[i-1])*fr:0;
     mkB[f]=breakCum[i-1]+(breakCum[i]-breakCum[i-1])*fr;mkBc[f]=breakCnt[i];mkBin[f]=breakIn[i];
+    mkBr[f]=breakRun[i-1]+(breakRun[i]-breakRun[i-1])*fr;
     if(f===0){cx=mx;cy=my;}
     if(doCenter){
       // 枠から出たら、ゆっくり中央へ寄せる
@@ -366,6 +369,12 @@ function prepare(){
     if(mx-cx>limx) cx=mx-limx; else if(cx-mx>limx) cx=mx+limx;
     if(my-cy>limDn) cy=my-limDn; else if(cy-my>limUp) cy=my+limUp;
     camX[f]=cx;camY[f]=cy;
+  }
+  // 停止が終わったフレーム（履歴の残像用）
+  for(const r of stopRuns){
+    let lo2=0,hi2=N;
+    while(lo2<hi2){const m=(lo2+hi2)>>1; if(mkT[m]>=r.e) hi2=m; else lo2=m+1;}
+    r.ef=lo2;
   }
   // オープニング用の全体表示
   OP=$('opening').checked?4*FPS:0;
@@ -590,14 +599,19 @@ function drawBody(f,rest){
   const left=[];
   if(hasTime){
     if($('showStop').checked) left.push({t:'停止 '+fmtDurS(mkS[f]),c:'#555',b:false});
-    if(brkOn) left.push({t:'休憩 '+mkBc[f]+'回 '+fmtDurS(mkB[f])+(mkBin[f]?'  休憩中':''),c:'#c62828',b:!!mkBin[f]});
+    if(brkOn) left.push({t:'休憩 '+Math.floor(mkBr[f]/60)+'分　計 '+fmtDur(mkB[f]),c:'#c62828',b:!!mkBin[f]});
   }
   let rows=[];
   if(hasTime&&$('showRun').checked){
     const done=[];
     for(const r of stopRuns){ if(r.e<=mkT[f]) done.push(r); else break; }
     // 位置が動かないよう、8件ずつのページ表示（満杯になったら次のページを最初から）
-    const all=done.map(r=>({t:r.s,d:(r.e-r.s)/1000,a:1,live:false}));
+    const fadeH=$('fade').checked;
+    const all=done.map(r=>{
+      let a=fadeH?Math.max(0.2,1-(f-r.ef)/300):1;   // 終わってから約10秒かけて薄くなる
+      a=a+(1-a)*restore;                          // 最後のエンディングで濃く戻る
+      return {t:r.s,d:(r.e-r.s)/1000,a:a,live:false};
+    });
     const ls=mkT[f]-mkR[f]*1000;
     if(mkR[f]>0&&!(done.length&&Math.abs(done[done.length-1].s-ls)<2000)) all.push({t:ls,d:mkR[f],a:1,live:true});
     const pg=Math.max(0,Math.floor((all.length-1)/8));
