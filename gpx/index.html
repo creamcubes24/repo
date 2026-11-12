@@ -54,8 +54,8 @@
 
 <div class="card">
   <div class="about">
-    <div><b>✔ 安心してお使いください</b></div>
-    <ul>
+    <div id="aboutHead" role="button" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0"><b>✔ 安心してお使いください</b><span id="aboutArrow" style="color:#777;font-size:12px">▲ 閉じる</span></div>
+    <ul id="aboutBody">
       <li><b>GPXは外に送信されません。</b>読み込み・加工・動画の作成は、すべてこの端末のブラウザの中で行います。</li>
       <li>サーバーへのアップロードも、ログインも、会員登録も、広告もありません。</li>
       <li>作った動画は、この端末にだけ保存されます。</li>
@@ -811,6 +811,10 @@ $('smooth').addEventListener('change',()=>{
 $('scrub').addEventListener('input',e=>{
   if(busy) return;
   stop();curF=+e.target.value;draw(curF);
+});
+$('aboutHead').addEventListener('click',()=>{
+  const b=$('aboutBody'),o=b.style.display==='none';
+  b.style.display=o?'':'none';$('aboutArrow').textContent=o?'▲ 閉じる':'▼ 開く';
 });
 canvas.addEventListener('click',()=>{ if(!$('play').disabled) $('play').click(); });
 const dropEl=$('drop');
