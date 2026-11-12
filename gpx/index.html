@@ -69,7 +69,7 @@
     <span class="small" id="fname">またはここにファイルをドロップ</span>
   </label>
   <input type="file" id="file" accept=".gpx,application/gpx+xml,text/xml,application/xml,*/*">
-  <button type="button" id="sample" style="width:100%;margin:8px 0 0;background:#fff;color:#1565c0;border:1px solid #1565c0">サンプルで試す（架空のルート）</button>
+  <button type="button" id="sample" style="width:100%;margin:8px 0 0;background:#fff;color:#1565c0;border:1px solid #1565c0">サンプルで試す</button>
   <div class="row">
     <label>地図
       <select id="map">
@@ -790,8 +790,11 @@ function makeSample(){
   }
   return out;
 }
-$('sample').addEventListener('click',()=>{
-  rawPts=makeSample();hasTime=true;afterLoad('サンプル');
+$('sample').addEventListener('click',async()=>{
+  try{
+    const r=await fetch('sample.gpx');if(!r.ok) throw 0;
+    rawPts=parseGPX(await r.text());afterLoad('サンプル');
+  }catch(e){ rawPts=makeSample();hasTime=true;afterLoad('サンプル（架空）'); }
 });
 ['map','zoom','dz','orient','dur','compress','opening','fade','brk','histN'].forEach(id=>$(id).addEventListener('change',()=>{
   if(busy||!rawPts.length) return;
