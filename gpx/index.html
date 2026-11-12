@@ -34,7 +34,9 @@
   .note{font-size:12px;color:#777;margin-top:6px}
   input#file{display:none}
   button,label,select,input,canvas{touch-action:manipulation}
-  html{-webkit-text-size-adjust:100%}
+  html{-webkit-text-size-adjust:100%;overflow-anchor:none}
+  body,button,canvas,label{-webkit-tap-highlight-color:transparent}
+  #status{min-height:36px}
   .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:130px;border:3px dashed #1565c0;border-radius:14px;background:#e8f0fb;color:#1565c0;cursor:pointer;text-align:center;padding:14px;margin-bottom:10px;width:100%}
   .drop .big{font-size:21px;font-weight:bold}
   .drop .small{font-size:13px;color:#555;word-break:break-all}
@@ -131,7 +133,7 @@
 </div>
 
 <div class="card">
-  <canvas id="cv" width="720" height="1280"></canvas>
+  <canvas id="cv" width="720" height="720"></canvas>
   <input type="range" id="scrub" min="0" max="899" value="0" disabled>
   <div class="row" style="margin-top:8px">
     <button id="play" disabled>▶ 再生</button>
@@ -319,7 +321,7 @@ function prepare(){
   if(!pts.length) return;
   const ori=$('orient').value;
   W=ori==='land'?1280:720;H=ori==='land'?720:(ori==='sq'?720:1280);
-  canvas.width=W;canvas.height=H;
+  canvas.width=W;canvas.height=H;canvas.style.aspectRatio=W+'/'+H;
   oc=document.createElement('canvas');oc.width=W;oc.height=H;octx=oc.getContext('2d');
   Z=+$('zoom').value;
   const ws=256*Math.pow(2,Z),n=pts.length;
